@@ -68,6 +68,8 @@ print(add(2, 3))
 
 Parameters are dynamically typed. No `return` means `null`. Functions can call themselves. `return`, `break`, and `continue` outside the relevant context are errors. Built-in names `print`, `input`, `len`, and `type` are recognized at call sites: `print(a, b)` writes arguments separated by spaces and a newline, `input(prompt)` reads a line as a `word`, `len(value)` accepts an array or `word`, and `type(value)` reports its KSL type. Assigning to a built-in name does not replace its call behavior in v0.1.
 
+Function calls are limited to 256 nested calls. A deeper recursive call produces `CallDepthExceeded` with a source location instead of exhausting the interpreter's C++ stack.
+
 ## Operators, highest precedence first
 
 1. Calls `f(...)`, indexing `a[...]`, postfix `++` and `--`.

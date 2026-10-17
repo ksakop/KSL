@@ -512,6 +512,9 @@ class Interpreter {
         if(args.size()!=decl.params.size())throw Error("ArityError",e.token.loc,
           "function '"+decl.token.text+"' expects "+std::to_string(decl.params.size())+
           " arguments, got "+std::to_string(args.size()));
+        if(functionDepth>=256)
+          throw Error("CallDepthExceeded",e.token.loc,
+            "function call depth exceeded 256 while calling '"+decl.token.text+"'");
         auto saved=env;int savedLoops=loopDepth;
         env=std::make_shared<Env>((*f)->closure);loopDepth=0;++functionDepth;
         for(size_t i=0;i<args.size();++i)env->values[decl.params[i]]=args[i];

@@ -52,6 +52,7 @@ errors = [
     ("integer_overflow", "print(9223372036854775807 + 1)\n", ["NumberOutOfRange", "bnum range"]),
     ("multiply_overflow", "print(3037000500 * 3037000500)\n", ["NumberOutOfRange", "bnum range"]),
     ("character_size", "print('ab')\n", ["SyntaxError", "let literal must contain exactly one byte"]),
+    ("recursive_depth", "fn forever() [return forever()]\nforever()\n", ["CallDepthExceeded", "depth exceeded 256", "recursive_depth.ksl:1"]),
 ]
 
 with tempfile.TemporaryDirectory() as tmp:
