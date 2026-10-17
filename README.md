@@ -42,3 +42,5 @@ Implemented: `num` and `bnum` integers, `dec` decimals, `word` strings, `let` ch
 Limitations: no module system, native compiler, closures with lexical block scopes, object types, array slicing, or multiline REPL. `input` returns a `word`. Decimal arithmetic uses IEEE 754 doubles; mixed integer/decimal arithmetic can lose precision. Full details: [language reference](docs/language.md), [syntax notes](docs/syntax.md), [architecture](docs/architecture.md), [roadmap](docs/roadmap.md).
 
 See [examples](examples/) and [contributing guide](CONTRIBUTING.md). Licensed under [MIT](LICENSE).
+
+CI builds and runs the same end-to-end tests on Linux and Windows for each push and pull request.
