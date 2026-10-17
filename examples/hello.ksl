@@ -1,0 +1,3 @@
+// KSL started as a joke. Unfortunately, it runs.
+name = "KSL"
+print("Hello from " + name)

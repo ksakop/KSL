@@ -1,0 +1,7 @@
+/build/
+/ksl
+/KSL-*.tar.gz
+/.codex/
+*.exe
+*.obj
+*.o

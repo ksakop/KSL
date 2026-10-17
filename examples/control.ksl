@@ -1,0 +1,13 @@
+sum = 0
+i = 0
+whileif <i < 8>
+<i++> [
+    if <i == 2> [
+        continue
+    ]
+    if <i > 5> [
+        break
+    ]
+    sum += i
+]
+print(sum)

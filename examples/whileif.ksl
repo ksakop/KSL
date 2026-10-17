@@ -1,0 +1,5 @@
+i = 0
+whileif <i < 3>
+<i++> [
+    print(i)
+]
