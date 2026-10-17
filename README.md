@@ -4,6 +4,8 @@
 
 KSL started as a joke. Unfortunately, it runs. Version 0.1 is a small, self-contained, dynamically typed interpreter written in C++17. Its square blocks and angle conditions are deliberate; its arrays start at zero.
 
+Values have KSL names: `word` (string), `let` (character), `num` (32-bit integer), `bnum` (64-bit integer), and `dec` (decimal). Variables and function parameters need no type declarations.
+
 ```ksl
 fn greet(name) [
     print("Hello, " + name)
@@ -35,8 +37,8 @@ Run `ksl program.ksl` for a file. Run `ksl` without arguments for a small, singl
 
 ## Status
 
-Implemented: numeric and string values, booleans, null, mutable arrays, expressions with precedence, `if`/`else`, `while`, `loop`, `whileif`, `break`, `continue`, functions, recursion, `return`, `print`, `input`, `len`, and source-located errors. No type declarations, semicolons, curly blocks, imports, or negative array indices.
+Implemented: `num` and `bnum` integers, `dec` decimals, `word` strings, `let` characters, booleans, null, mutable arrays, expressions with precedence, `if`/`else`, `while`, `loop`, `whileif`, `break`, `continue`, functions, recursion, `return`, `print`, `input`, `len`, `type`, and source-located errors. No type declarations, semicolons, curly blocks, imports, or negative array indices.
 
-Limitations: no module system, native compiler, closures with lexical block scopes, object types, array slicing, or multiline REPL. `input` returns a string. Number values are floating-point doubles; integer-only indexing is checked at runtime. Full details: [language reference](docs/language.md), [syntax notes](docs/syntax.md), [architecture](docs/architecture.md), [roadmap](docs/roadmap.md).
+Limitations: no module system, native compiler, closures with lexical block scopes, object types, array slicing, or multiline REPL. `input` returns a `word`. Decimal arithmetic uses IEEE 754 doubles; mixed integer/decimal arithmetic can lose precision. Full details: [language reference](docs/language.md), [syntax notes](docs/syntax.md), [architecture](docs/architecture.md), [roadmap](docs/roadmap.md).
 
 See [examples](examples/) and [contributing guide](CONTRIBUTING.md). Licensed under [MIT](LICENSE).

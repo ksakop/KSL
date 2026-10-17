@@ -1,0 +1,9 @@
+name = "KSL"          // word
+initial = 'K'         // let
+score = 42            // num
+distance = 2147483648 // bnum
+speed = 3.5           // dec
+
+print(type(name), type(initial), type(score), type(distance), type(speed))
+score = "forty-two"   // a variable can hold another type later
+print(score)

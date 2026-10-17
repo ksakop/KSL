@@ -24,6 +24,11 @@ cases = [
     ("cycle_display", "a = [null]\na[0] = a\nprint(a)\n", "[[<cycle>]]\n"),
     ("return_from_loop", "fn f() [loop [return 9]]\nprint(f())\n", "9\n"),
     ("nested_continue", "i = 0\nwhileif <i < 3> <i++> [\n j = 0\n while <j < 2> [j++\n  continue]\n print(i)\n]\n", "0\n1\n2\n"),
+    ("value_names", "print(type(4), type(2147483648), type(3.5), type(\"KSL\"), type('K'))\nprint(type(true), type(null), type([]))\n", "num bnum dec word let\nbool null array\n"),
+    ("integer_promotion", "x = 2147483647\nx++\nprint(x, type(x))\nprint(9007199254740993 + 1)\nprint(type(6 / 2))\n", "2147483648 bnum\n9007199254740994\ndec\n"),
+    ("character", "c = 'a'\nprint(c + 'b', type(c), 'a' == 'a', 'a' != 'b')\nprint(type('\\n'))\n", "ab let true true\nlet\n"),
+    ("integer_min", "x = -9223372036854775808\nprint(x, type(x))\n", "-9223372036854775808 bnum\n"),
+    ("mixed_comparison", "a = 9007199254740993\nb = 9007199254740992.0\nprint(a == b, a > b, b < a)\nprint(3 == 3.0, 3 < 3.5)\n", "false true true\ntrue true\n"),
 ]
 errors = [
     ("negative_index", "a = [1, 2]\nprint(a[-1])\n", ["ArrayIndexOutOfBounds", "attempted index: -1", "valid range: 0..1", "negative_index.ksl:2:9"]),
@@ -44,6 +49,9 @@ errors = [
     ("invalid_assignment", "print(99)\n(1 + 2) = 3\n", ["SyntaxError", "assignment target"]),
     ("invalid_increment", "(1 + 2)++\n", ["SyntaxError", "require a variable"]),
     ("duplicate_parameter", "fn f(x, x) [return x]\n", ["SyntaxError", "duplicate parameter 'x'"]),
+    ("integer_overflow", "print(9223372036854775807 + 1)\n", ["NumberOutOfRange", "bnum range"]),
+    ("multiply_overflow", "print(3037000500 * 3037000500)\n", ["NumberOutOfRange", "bnum range"]),
+    ("character_size", "print('ab')\n", ["SyntaxError", "let literal must contain exactly one byte"]),
 ]
 
 with tempfile.TemporaryDirectory() as tmp:

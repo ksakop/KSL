@@ -1,8 +1,10 @@
 #include <cmath>
+#include <cstdint>
 #include <fstream>
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -20,7 +22,7 @@ struct Error : std::runtime_error {
       : std::runtime_error(std::move(msg)), category(std::move(kind)), loc(at) {}
 };
 enum class T {
-  End, Newline, Number, String, Name, LParen, RParen, LSquare, RSquare,
+  End, Newline, Number, String, Character, Name, LParen, RParen, LSquare, RSquare,
   Less, Greater, LessEq, GreaterEq, Equal, NotEqual, Assign,
   Plus, Minus, Star, Slash, Percent, PlusEq, MinusEq, StarEq, SlashEq,
   Inc, Dec, Bang, And, Or,
@@ -58,21 +60,23 @@ public:
               (peek()>='0'&&peek()<='9')||peek()=='_') s+=take();
         auto it=words.find(s); out.push_back({it==words.end()?T::Name:it->second,s,at}); continue;
       }
-      if(c=='"') {
-        take(); std::string s; bool closed=false;
+      if(c=='"'||c=='\'') {
+        char quote=take(); std::string s; bool closed=false;
         while(peek()) {
-          if(peek()=='"') {take(); closed=true; break;}
+          if(peek()==quote) {take(); closed=true; break;}
           if(peek()=='\n') throw Error("SyntaxError",at,"unterminated string");
           if(peek()=='\\') {
             take(); char e=peek(); if(!e) break;
             if(e=='n') s+='\n'; else if(e=='t') s+='\t';
-            else if(e=='"'||e=='\\') s+=e;
+            else if(e=='"'||e=='\''||e=='\\') s+=e;
             else throw Error("SyntaxError",loc,"unknown string escape");
             take();
           } else s+=take();
         }
         if(!closed) throw Error("SyntaxError",at,"unterminated string");
-        out.push_back({T::String,s,at}); continue;
+        if(quote=='\''&&s.size()!=1)
+          throw Error("SyntaxError",at,"let literal must contain exactly one byte");
+        out.push_back({quote=='\''?T::Character:T::String,s,at}); continue;
       }
       std::string two{c,peek(1)};
       const std::unordered_map<std::string,T> pairs = {
@@ -130,12 +134,12 @@ class Parser {
     }
   }
   static bool begins(T t) {
-    return t==T::Number||t==T::String||t==T::Name||t==T::True||t==T::False||
+    return t==T::Number||t==T::String||t==T::Character||t==T::Name||t==T::True||t==T::False||
       t==T::Null||t==T::LParen||t==T::LSquare||t==T::Minus||t==T::Bang||t==T::Plus;
   }
   E primary() {
     Token t=cur();
-    if(match(T::Number)||match(T::String)||match(T::True)||match(T::False)||match(T::Null)) return node(Expr::Literal,t);
+    if(match(T::Number)||match(T::String)||match(T::Character)||match(T::True)||match(T::False)||match(T::Null)) return node(Expr::Literal,t);
     if(match(T::Name)) return node(Expr::Variable,t);
     if(match(T::Minus)||match(T::Bang)||match(T::Plus)) {
       auto n=node(Expr::Unary,t);n->args.push_back(expression(8));return n;
@@ -228,8 +232,59 @@ public:
 };
 
 struct Function; struct ArrayValue;
-using Value=std::variant<std::monostate,double,std::string,bool,std::shared_ptr<ArrayValue>,std::shared_ptr<Function>>;
+using Value=std::variant<std::monostate,std::int32_t,std::int64_t,double,std::string,char,bool,
+                         std::shared_ptr<ArrayValue>,std::shared_ptr<Function>>;
 struct ArrayValue {std::vector<Value> elements;};
+bool isInteger(const Value &v) {
+  return std::holds_alternative<std::int32_t>(v)||std::holds_alternative<std::int64_t>(v);
+}
+std::int64_t integer(const Value &v) {
+  if(auto n=std::get_if<std::int32_t>(&v))return *n;
+  return std::get<std::int64_t>(v);
+}
+Value makeInteger(std::int64_t n) {
+  if(n>=std::numeric_limits<std::int32_t>::min() && n<=std::numeric_limits<std::int32_t>::max())
+    return static_cast<std::int32_t>(n);
+  return n;
+}
+bool isNumeric(const Value &v) {return isInteger(v)||std::holds_alternative<double>(v);}
+double numeric(const Value &v) {
+  if(auto n=std::get_if<double>(&v))return *n;
+  return static_cast<double>(integer(v));
+}
+// Return -1, 0, 1, or 2 (unordered NaN), without rounding a bnum to double.
+int compareNumbers(const Value &a,const Value &b) {
+  if(isInteger(a)&&isInteger(b)) {
+    auto x=integer(a),y=integer(b);return x<y?-1:x>y?1:0;
+  }
+  if(!isInteger(a)&&!isInteger(b)) {
+    double x=std::get<double>(a),y=std::get<double>(b);
+    return std::isnan(x)||std::isnan(y)?2:x<y?-1:x>y?1:0;
+  }
+  bool reverse=!isInteger(a);
+  auto i=integer(reverse?b:a);
+  double d=std::get<double>(reverse?a:b);
+  if(std::isnan(d))return 2;
+  int result;
+  if(d>=9223372036854775808.0)result=-1;
+  else if(d< -9223372036854775808.0)result=1;
+  else {
+    auto whole=static_cast<std::int64_t>(d);
+    result=i<whole?-1:i>whole?1:double(whole)<d?-1:double(whole)>d?1:0;
+  }
+  return reverse?-result:result;
+}
+std::string typeName(const Value &v) {
+  if(std::holds_alternative<std::monostate>(v))return "null";
+  if(std::holds_alternative<std::int32_t>(v))return "num";
+  if(std::holds_alternative<std::int64_t>(v))return "bnum";
+  if(std::holds_alternative<double>(v))return "dec";
+  if(std::holds_alternative<std::string>(v))return "word";
+  if(std::holds_alternative<char>(v))return "let";
+  if(std::holds_alternative<bool>(v))return "bool";
+  if(std::holds_alternative<std::shared_ptr<ArrayValue>>(v))return "array";
+  return "function";
+}
 struct Env:std::enable_shared_from_this<Env> {
   std::unordered_map<std::string,Value> values;std::shared_ptr<Env> parent;
   explicit Env(std::shared_ptr<Env> p=nullptr):parent(std::move(p)){}
@@ -247,8 +302,11 @@ struct Env:std::enable_shared_from_this<Env> {
 struct Function {const Stmt *declaration;std::shared_ptr<Env> closure;};
 std::string displayValue(const Value &v,std::unordered_set<const ArrayValue *> &active) {
   if(std::holds_alternative<std::monostate>(v))return "null";
+  if(auto n=std::get_if<std::int32_t>(&v))return std::to_string(*n);
+  if(auto n=std::get_if<std::int64_t>(&v))return std::to_string(*n);
   if(auto n=std::get_if<double>(&v)) {std::ostringstream o;o.precision(15);o<<*n;return o.str();}
   if(auto s=std::get_if<std::string>(&v))return *s;
+  if(auto c=std::get_if<char>(&v))return std::string(1,*c);
   if(auto b=std::get_if<bool>(&v))return *b?"true":"false";
   if(auto a=std::get_if<std::shared_ptr<ArrayValue>>(&v)) {
     if(active.count(a->get()))return "[<cycle>]";
@@ -269,14 +327,20 @@ std::string display(const Value &v) {
 }
 bool truth(const Value &v) {
   if(std::holds_alternative<std::monostate>(v))return false;
+  if(isInteger(v))return integer(v)!=0;
   if(auto n=std::get_if<double>(&v))return *n!=0;
   if(auto s=std::get_if<std::string>(&v))return !s->empty();
+  if(auto c=std::get_if<char>(&v))return *c!='\0';
   if(auto b=std::get_if<bool>(&v))return *b;
   if(auto a=std::get_if<std::shared_ptr<ArrayValue>>(&v))return !(*a)->elements.empty();
   return true;
 }
 bool equal(const Value &a,const Value &b) {
+  if(isNumeric(a)&&isNumeric(b)) {
+    return compareNumbers(a,b)==0;
+  }
   if(a.index()!=b.index())return false;
+  if(auto x=std::get_if<char>(&a))return *x==std::get<char>(b);
   if(auto x=std::get_if<double>(&a))return *x==std::get<double>(b);
   if(auto x=std::get_if<std::string>(&a))return *x==std::get<std::string>(b);
   if(auto x=std::get_if<bool>(&a))return *x==std::get<bool>(b);
@@ -290,25 +354,62 @@ class Interpreter {
   std::vector<std::vector<S>> programs; // Keeps function AST nodes alive between REPL entries.
   int loopDepth=0, functionDepth=0;
   double number(const Value &v,Loc at) {
-    if(auto n=std::get_if<double>(&v))return *n;
+    if(isNumeric(v))return numeric(v);
     throw Error("TypeError",at,"expected a number, got "+display(v));
   }
   size_t index(const Value &v,size_t size,Loc at) {
-    auto n=std::get_if<double>(&v);
-    if(!n||!std::isfinite(*n)||std::floor(*n)!=*n)
+    if(!isNumeric(v))
       throw Error("TypeError",at,"array index must be an integer number");
-    if(*n<0||*n>=static_cast<double>(size)) {
-      std::ostringstream msg;msg<<"attempted index: "<<*n<<"; valid range: ";
+    double n=number(v,at);
+    if(!std::isfinite(n)||std::floor(n)!=n)
+      throw Error("TypeError",at,"array index must be an integer number");
+    bool invalid=isInteger(v)?(integer(v)<0||static_cast<std::uint64_t>(integer(v))>=size)
+                             :(n<0||n>=static_cast<double>(size));
+    if(invalid) {
+      std::ostringstream msg;msg<<"attempted index: "<<display(v)<<"; valid range: ";
       if(size)msg<<"0.."<<size-1;else msg<<"empty array";
       throw Error("ArrayIndexOutOfBounds",at,msg.str());
     }
-    return static_cast<size_t>(*n);
+    return isInteger(v)?static_cast<size_t>(integer(v)):static_cast<size_t>(n);
   }
   Value binary(T op,Value a,Value b,Loc at) {
     if(op==T::Equal)return equal(a,b);
     if(op==T::NotEqual)return !equal(a,b);
-    if(op==T::Plus&&(std::holds_alternative<std::string>(a)||std::holds_alternative<std::string>(b)))
+    if(isNumeric(a)&&isNumeric(b) &&
+       (op==T::Less||op==T::Greater||op==T::LessEq||op==T::GreaterEq)) {
+      int order=compareNumbers(a,b);
+      if(op==T::Less)return order==-1;
+      if(op==T::Greater)return order==1;
+      if(op==T::LessEq)return order==0||order==-1;
+      return order==0||order==1;
+    }
+    if(op==T::Plus&&(std::holds_alternative<std::string>(a)||std::holds_alternative<std::string>(b)||
+                    std::holds_alternative<char>(a)||std::holds_alternative<char>(b)))
       return display(a)+display(b);
+    if(isInteger(a)&&isInteger(b)&&op!=T::Slash) {
+      std::int64_t x=integer(a),y=integer(b);
+      const auto hi=std::numeric_limits<std::int64_t>::max();
+      const auto lo=std::numeric_limits<std::int64_t>::min();
+      bool overflow=false;
+      if(op==T::Plus)overflow=(y>0&&x>hi-y)||(y<0&&x<lo-y);
+      if(op==T::Minus)overflow=(y<0&&x>hi+y)||(y>0&&x<lo+y);
+      if(op==T::Star)overflow=(x>0&&y>0&&x>hi/y)||
+        (x>0&&y<0&&y<lo/x)||(x<0&&y>0&&x<lo/y)||
+        (x<0&&y<0&&x<hi/y);
+      if(overflow)throw Error("NumberOutOfRange",at,"integer arithmetic exceeds bnum range");
+      if(op==T::Plus)return makeInteger(x+y);
+      if(op==T::Minus)return makeInteger(x-y);
+      if(op==T::Star)return makeInteger(x*y);
+      if(op==T::Percent) {
+        if(y==0)throw Error("DivisionByZero",at,"cannot take remainder by zero");
+        if(x==lo&&y==-1)return makeInteger(0);
+        return makeInteger(x%y);
+      }
+      if(op==T::Less)return x<y;
+      if(op==T::Greater)return x>y;
+      if(op==T::LessEq)return x<=y;
+      if(op==T::GreaterEq)return x>=y;
+    }
     double x=number(a,at),y=number(b,at);
     switch(op) {
       case T::Plus:return x+y;case T::Minus:return x-y;case T::Star:return x*y;
@@ -324,17 +425,32 @@ class Interpreter {
     switch(e.kind) {
       case Expr::Literal:
         if(op==T::Number) {
-          try {return std::stod(e.token.text);}
+          try {
+            if(e.token.text.find('.')!=std::string::npos)return std::stod(e.token.text);
+            return makeInteger(std::stoll(e.token.text));
+          }
           catch(const std::out_of_range &) {throw Error("NumberOutOfRange",e.token.loc,"numeric literal is too large");}
         }
         if(op==T::String)return e.token.text;
+        if(op==T::Character)return e.token.text[0];
         if(op==T::True)return true;
         if(op==T::False)return false;
         return {};
       case Expr::Variable:return env->get(e.token.text,e.token.loc);
       case Expr::Array: {auto v=std::make_shared<ArrayValue>();for(auto &x:a)v->elements.push_back(evaluate(*x));return v;}
-      case Expr::Unary: {Value v=evaluate(*a[0]);if(op==T::Bang)return !truth(v);
-        double n=number(v,e.token.loc);return op==T::Minus?-n:n;}
+      case Expr::Unary: {
+        if(op==T::Minus&&a[0]->kind==Expr::Literal&&a[0]->token.type==T::Number&&
+           a[0]->token.text=="9223372036854775808")
+          return std::numeric_limits<std::int64_t>::min();
+        Value v=evaluate(*a[0]);if(op==T::Bang)return !truth(v);
+        if(isInteger(v)) {
+          std::int64_t n=integer(v);
+          if(op==T::Minus&&n==std::numeric_limits<std::int64_t>::min())
+            throw Error("NumberOutOfRange",e.token.loc,"integer arithmetic exceeds bnum range");
+          return makeInteger(op==T::Minus?-n:n);
+        }
+        double n=number(v,e.token.loc);return op==T::Minus?-n:n;
+      }
       case Expr::Binary: {
         Value left=evaluate(*a[0]);
         if(op==T::And) return truth(left)?evaluate(*a[1]):left;
@@ -369,7 +485,8 @@ class Interpreter {
       case Expr::Postfix: {
         if(a[0]->kind!=Expr::Variable)throw Error("SyntaxError",e.token.loc,"++ and -- require a variable");
         const std::string &name=a[0]->token.text;Value old=env->get(name,e.token.loc);
-        env->set(name,number(old,e.token.loc)+(op==T::Inc?1.0:-1.0));return old;
+        Value next=binary(op==T::Inc?T::Plus:T::Minus,old,makeInteger(1),e.token.loc);
+        env->set(name,next);return old;
       }
       case Expr::Call: {
         std::vector<Value> args;for(size_t i=1;i<a.size();++i)args.push_back(evaluate(*a[i]));
@@ -380,9 +497,14 @@ class Interpreter {
             if(!args.empty())std::cout<<display(args[0])<<std::flush;
             std::string s;std::getline(std::cin,s);return s;}
           if(name=="len") {if(args.size()!=1)throw Error("ArityError",e.token.loc,"len expects 1 argument");
-            if(auto s=std::get_if<std::string>(&args[0]))return double(s->size());
-            if(auto v=std::get_if<std::shared_ptr<ArrayValue>>(&args[0]))return double((*v)->elements.size());
+            if(auto s=std::get_if<std::string>(&args[0]))return makeInteger(static_cast<std::int64_t>(s->size()));
+            if(auto v=std::get_if<std::shared_ptr<ArrayValue>>(&args[0]))
+              return makeInteger(static_cast<std::int64_t>((*v)->elements.size()));
             throw Error("TypeError",e.token.loc,"len expects a string or array");}
+          if(name=="type") {
+            if(args.size()!=1)throw Error("ArityError",e.token.loc,"type expects 1 argument");
+            return typeName(args[0]);
+          }
         }
         Value callable=evaluate(*a[0]);auto f=std::get_if<std::shared_ptr<Function>>(&callable);
         if(!f)throw Error("TypeError",e.token.loc,"value is not callable");
