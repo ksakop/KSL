@@ -22,7 +22,7 @@ The loop prints `KSL 0`, `KSL 1`, `KSL 2`. The step runs **after** the body, inc
 
 ## Build and run
 
-Requires a C++17 compiler. CMake 3.16+ is recommended:
+Requires a C++17 compiler and Python 3 for tests. CMake 3.16+ is recommended:
 
 ```sh
 cmake -S . -B build
