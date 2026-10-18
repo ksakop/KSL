@@ -427,10 +427,16 @@ class Interpreter {
       if(op==T::GreaterEq)return x>=y;
     }
     double x=number(a,at),y=number(b,at);
+    auto decimal=[&](double result)->Value {
+      if(!std::isfinite(result))
+        throw Error("NumberOutOfRange",at,"decimal arithmetic produced a non-finite result");
+      return result;
+    };
     switch(op) {
-      case T::Plus:return x+y;case T::Minus:return x-y;case T::Star:return x*y;
-      case T::Slash:if(y==0)throw Error("DivisionByZero",at,"cannot divide by zero");return x/y;
-      case T::Percent:if(y==0)throw Error("DivisionByZero",at,"cannot take remainder by zero");return std::fmod(x,y);
+      case T::Plus:return decimal(x+y);case T::Minus:return decimal(x-y);
+      case T::Star:return decimal(x*y);
+      case T::Slash:if(y==0)throw Error("DivisionByZero",at,"cannot divide by zero");return decimal(x/y);
+      case T::Percent:if(y==0)throw Error("DivisionByZero",at,"cannot take remainder by zero");return decimal(std::fmod(x,y));
       case T::Less:return x<y;case T::Greater:return x>y;
       case T::LessEq:return x<=y;case T::GreaterEq:return x>=y;
       default:throw Error("TypeError",at,"unsupported binary operator");
@@ -442,10 +448,16 @@ class Interpreter {
       case Expr::Literal:
         if(op==T::Number) {
           try {
-            if(e.token.text.find('.')!=std::string::npos)return std::stod(e.token.text);
+            if(e.token.text.find('.')!=std::string::npos) {
+              double n=std::stod(e.token.text);
+              if(!std::isfinite(n))throw std::out_of_range("decimal literal");
+              return n;
+            }
             return makeInteger(std::stoll(e.token.text));
           }
-          catch(const std::out_of_range &) {throw Error("NumberOutOfRange",e.token.loc,"numeric literal is too large");}
+          catch(const std::out_of_range &) {
+            throw Error("NumberOutOfRange",e.token.loc,"numeric literal is outside its supported range");
+          }
         }
         if(op==T::String)return e.token.text;
         if(op==T::Character)return e.token.text[0];

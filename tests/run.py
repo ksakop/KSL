@@ -45,6 +45,8 @@ errors = [
     ("return_outside", "return 1\n", ["ControlFlowError", "outside a function"]),
     ("arity", "fn f(x) [return x]\nf()\n", ["ArityError", "expects 1 arguments"]),
     ("huge_number", "print(" + "9" * 400 + ")\n", ["NumberOutOfRange", "numeric literal"]),
+    ("decimal_overflow", "x = " + "9" * 200 + ".0\nprint(x * x)\n", ["NumberOutOfRange", "non-finite result"]),
+    ("decimal_literal_range", "print(" + "9" * 400 + ".0)\n", ["NumberOutOfRange", "numeric literal"]),
     ("malformed_step", "whileif <true> <i++ [print(1)]\n", ["SyntaxError"]),
     ("index_assign_bounds", "a = [1]\na[-1] = 2\n", ["ArrayIndexOutOfBounds", "attempted index: -1"]),
     ("invalid_assignment", "print(99)\n(1 + 2) = 3\n", ["SyntaxError", "assignment target"]),

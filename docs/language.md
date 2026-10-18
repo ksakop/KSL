@@ -18,6 +18,8 @@
 
 `type(value)` returns the type name as a `word`. Integer literals start as `num` when they fit and otherwise become `bnum`; arithmetic promotes a result to `bnum` when necessary. Exceeding the signed 64-bit range is an error. Division returns `dec`, even when the quotient is whole. Numeric literals support decimal digits and a decimal point; scientific notation is not yet supported. A missing variable is an error.
 
+`dec` arithmetic uses IEEE 754 double precision. If an operation overflows to a non-finite result, KSL reports `NumberOutOfRange` instead of silently printing infinity. Precision can still be lost when mixing `bnum` and `dec` in arithmetic.
+
 `word` literals use double quotes and support `\n`, `\t`, `\"`, `\\`. `let` literals use single quotes, hold exactly one byte, and support escapes such as `'\n'` and `'\''`. Unicode letters occupying multiple UTF-8 bytes must currently be written as `word` values. `+` adds numbers or concatenates text; if either side is `word` or `let`, the result is `word`. Arithmetic and ordered comparisons require numbers. Integer comparisons remain exact; mixed arithmetic with `dec` uses floating-point conversion. `==` and `!=` compare numeric values across `num`, `bnum`, and `dec`; arrays and functions compare by identity. `and` and `or` short-circuit and return an operand. `not` returns a boolean. Falsey values are `false`, `null`, zero, empty `word`, empty array, and the zero byte `let`.
 
 ## Arrays
