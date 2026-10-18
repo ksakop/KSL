@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """End-to-end KSL language tests; requires only Python's standard library."""
 import pathlib
+import os
 import subprocess
 import sys
 import tempfile
@@ -123,4 +124,42 @@ with tempfile.TemporaryDirectory() as tmp:
     help_result = subprocess.run([str(binary), "--help"], capture_output=True, text=True, timeout=3)
     if help_result.returncode != 0 or "Usage: ksl" not in help_result.stdout:
         raise AssertionError(f"help: {help_result.stdout!r}, {help_result.stderr!r}")
-print(f"{len(examples) + len(cases) + len(errors) + 5} language tests passed")
+    compile_source = pathlib.Path(tmp, "own_program.ksl")
+    compile_source.write_text("print(40 + 2)\n", encoding="utf-8")
+    checked = subprocess.run([str(binary), "--check", str(compile_source)],
+                             capture_output=True, text=True, timeout=3)
+    if checked.returncode != 0 or checked.stdout or checked.stderr:
+        raise AssertionError(f"check: {checked.stdout!r}, {checked.stderr!r}")
+    output = pathlib.Path(tmp, "own_program" + (".exe" if os.name == "nt" else ""))
+    package = subprocess.run([sys.executable, str(pathlib.Path(__file__).resolve().parent.parent / "kslc.py"),
+                              str(compile_source), "-o", str(output), "--ksl", str(binary)],
+                             capture_output=True, text=True, timeout=180)
+    if package.returncode != 0 or not output.is_file():
+        raise AssertionError(f"kslc: {package.stdout!r}, {package.stderr!r}")
+    compile_source.unlink()
+    packaged = subprocess.run([str(output)], capture_output=True, text=True, timeout=3)
+    if packaged.returncode != 0 or packaged.stdout != "42\n":
+        raise AssertionError(f"packaged program: {packaged.stdout!r}, {packaged.stderr!r}")
+    runtime_source = pathlib.Path(tmp, "runtime_error.ksl")
+    runtime_source.write_text("print([1][-1])\n", encoding="utf-8")
+    runtime_output = pathlib.Path(tmp, "runtime_error" + (".exe" if os.name == "nt" else ""))
+    runtime_package = subprocess.run(
+        [sys.executable, str(pathlib.Path(__file__).resolve().parent.parent / "kslc.py"),
+         str(runtime_source), "-o", str(runtime_output), "--ksl", str(binary)],
+        capture_output=True, text=True, timeout=180,
+    )
+    if runtime_package.returncode != 0:
+        raise AssertionError(f"runtime package: {runtime_package.stdout!r}, {runtime_package.stderr!r}")
+    runtime_source.unlink()
+    runtime_result = subprocess.run([str(runtime_output)], capture_output=True, text=True, timeout=3)
+    if runtime_result.returncode == 0 or "ArrayIndexOutOfBounds" not in runtime_result.stderr or "runtime_error.ksl:1" not in runtime_result.stderr:
+        raise AssertionError(f"packaged runtime error: {runtime_result.stdout!r}, {runtime_result.stderr!r}")
+    bad_source = pathlib.Path(tmp, "bad_program.ksl")
+    bad_source.write_text("print(1 +)\n", encoding="utf-8")
+    bad_output = pathlib.Path(tmp, "bad_program" + (".exe" if os.name == "nt" else ""))
+    rejected = subprocess.run([sys.executable, str(pathlib.Path(__file__).resolve().parent.parent / "kslc.py"),
+                               str(bad_source), "-o", str(bad_output), "--ksl", str(binary)],
+                              capture_output=True, text=True, timeout=3)
+    if rejected.returncode == 0 or bad_output.exists() or "SyntaxError" not in rejected.stderr:
+        raise AssertionError(f"bad package: {rejected.stdout!r}, {rejected.stderr!r}")
+print(f"{len(examples) + len(cases) + len(errors) + 10} language tests passed")

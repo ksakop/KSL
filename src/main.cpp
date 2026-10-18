@@ -667,12 +667,27 @@ int executeSource(const std::string &source,const std::string &name,Interpreter 
   }
   catch(const std::exception &e) {std::cerr<<"KSL Internal Error: "<<e.what()<<"\n";return 2;}
 }
+int checkSource(const std::string &source,const std::string &name) {
+  try {auto tokens=Lexer(source).scan();Parser(tokens).parse();return 0;}
+  catch(const Error &e) {report(e,name,source);return 1;}
+  catch(const std::exception &e) {std::cerr<<"KSL Internal Error: "<<e.what()<<"\n";return 2;}
+}
 } // namespace ksl
+#ifdef KSL_EMBEDDED_PROGRAM
 int main(int argc,char **argv) {
-  if(argc>2) {std::cerr<<"Usage: ksl [file.ksl]\n";return 2;}
+  if(argc!=1) {std::cerr<<"This compiled KSL program takes no command-line arguments.\n";return 2;}
+  std::string source(reinterpret_cast<const char *>(kslEmbeddedSource),sizeof(kslEmbeddedSource)-1);
+  std::string name(reinterpret_cast<const char *>(kslEmbeddedName),sizeof(kslEmbeddedName)-1);
+  ksl::Interpreter runtime;
+  return ksl::executeSource(source,name,runtime);
+}
+#else
+int main(int argc,char **argv) {
+  bool checking=argc==3&&std::string(argv[1])=="--check";
+  if(argc>2&&!checking) {std::cerr<<"Usage: ksl [file.ksl] or ksl --check file.ksl\n";return 2;}
   if(argc==2 && std::string(argv[1])=="--help") {
     std::cout<<"KSL v0.1 — Kodexically Slow Language\n"
-             <<"Usage: ksl [file.ksl]\n"
+             <<"Usage: ksl [file.ksl] or ksl --check file.ksl\n"
              <<"With no file, start the REPL.\n";
     return 0;
   }
@@ -691,6 +706,9 @@ int main(int argc,char **argv) {
     if(!source.empty())ksl::executeSource(source,"<repl>",runtime);
     return 0;
   }
-  std::ifstream f(argv[1]);if(!f){std::cerr<<"KSL File Error: cannot open '"<<argv[1]<<"'\n";return 2;}
-  std::ostringstream buffer;buffer<<f.rdbuf();return ksl::executeSource(buffer.str(),argv[1],runtime);
+  const char *path=checking?argv[2]:argv[1];
+  std::ifstream f(path);if(!f){std::cerr<<"KSL File Error: cannot open '"<<path<<"'\n";return 2;}
+  std::ostringstream buffer;buffer<<f.rdbuf();
+  return checking?ksl::checkSource(buffer.str(),path):ksl::executeSource(buffer.str(),path,runtime);
 }
+#endif

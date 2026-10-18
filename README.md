@@ -35,6 +35,8 @@ On Windows, run `build/Debug/ksl.exe examples/whileif.ksl` with a multiconfigura
 
 Run `ksl program.ksl` for a file. Run `ksl` without arguments for a small REPL; variables persist across entered lines. Incomplete blocks, functions, and calls continue at the `...` prompt until closed. In the REPL, put `else [` on the same line as the preceding `]`.
 
+To turn your own `.ksl` file into a runnable executable, run `python3 kslc.py program.ksl -o program` after building KSL. On Windows, use `py kslc.py program.ksl -o program.exe`. This packages the interpreter with your program; see the [executable guide](docs/compiler.md) for what that means and the commercial licensing condition.
+
 ## Status
 
 Implemented: `num` and `bnum` integers, `dec` decimals, `word` strings, `let` characters, booleans, null, mutable arrays, expressions with precedence, `if`/`else`, `while`, `loop`, `whileif`, `break`, `continue`, functions, recursion, `return`, `print`, `input`, `len`, `type`, and source-located errors. No type declarations, semicolons, curly blocks, imports, or negative array indices.
