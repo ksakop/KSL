@@ -1,0 +1,49 @@
+KSL Source-Available License, version 0.1
+Copyright (c) 2026 ksakop
+
+1. Scope
+
+"Software" means the KSL interpreter, its source code, documentation, and
+modified versions of those materials. A program independently written in the
+KSL language is not the Software merely because it was written in KSL.
+
+2. Permission to use and share
+
+Subject to section 3, you may use, study, copy, and modify the Software for
+any purpose. You may distribute the Software or modified versions without
+charge, provided you include this license and the copyright notice with every
+copy and do not misrepresent a modified version as an official KSL release.
+
+You may create, use, distribute, and sell programs independently written in
+KSL without paying a fee or requesting permission under this license. Those
+programs belong to their respective authors. This paragraph does not grant
+permission to bundle or distribute the KSL interpreter or runtime itself as
+part of a paid product.
+
+3. Commercial exploitation of KSL
+
+You must obtain a separate written agreement signed by the copyright holder
+before you sell, license for a fee, or otherwise distribute the Software for
+commercial advantage or monetary compensation. The same requirement applies
+to including the Software in a paid product or charging for hosted access to
+the Software itself. It applies to modified versions as well.
+
+The separate agreement must specify a positive share of profit for the
+copyright holder, the definition and calculation of that profit, reporting
+periods, and payment terms. Requesting permission does not grant it. Until
+the agreement is signed, no permission for these commercial activities is
+granted.
+
+4. Other rights and termination
+
+This license does not grant rights to the KSL name, logos, or other trademarks.
+If you violate this license, your permissions under it terminate. The
+copyright holder may reinstate them in writing. Rights in independently
+written KSL programs are unaffected.
+
+5. Disclaimer
+
+The Software is provided "as is", without warranties of any kind, to the
+extent permitted by applicable law. The copyright holder is not liable for
+claims or damages arising from use of the Software, to the extent permitted
+by applicable law.
