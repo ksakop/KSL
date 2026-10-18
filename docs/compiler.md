@@ -1,5 +1,24 @@
 # Building an executable from KSL
 
+## Using only the GitHub website
+
+1. In the repository, select **Add file → Create new file** and name it
+   `my_program.ksl`. Write your code, then select **Commit changes**.
+2. Open **Actions → Build a KSL program for Windows → Run workflow**.
+   Enter `my_program.ksl` as the source path and run it on `main`.
+3. Open the new workflow run. When it succeeds, download the
+   `ksl-my_program-windows` artifact at the bottom of the run page.
+4. Extract the ZIP and run `my_program.exe` on Windows.
+
+The first run after adding this workflow builds `examples/hello.ksl` as a
+smoke test. You can keep your own program in a folder too: enter its relative
+path, such as `examples/my_program.ksl`. The file name must use ASCII letters,
+digits, underscores, or hyphens. GitHub Actions runs the language tests before
+building your program. It checks syntax before packaging, but a runtime error
+in your program can still occur when you launch the `.exe`.
+
+## Building on your computer
+
 Write a self-contained `.ksl` file, for example `my_program.ksl`:
 
 ```ksl

@@ -37,6 +37,8 @@ Run `ksl program.ksl` for a file. Run `ksl` without arguments for a small REPL; 
 
 To turn your own `.ksl` file into a runnable executable, run `python3 kslc.py program.ksl -o program` after building KSL. On Windows, use `py kslc.py program.ksl -o program.exe`. This packages the interpreter with your program; see the [executable guide](docs/compiler.md) for what that means and the commercial licensing condition.
 
+If you only have the GitHub website, create your `.ksl` file there and use **Actions → Build a KSL program for Windows → Run workflow**. Download the resulting ZIP artifact; the [executable guide](docs/compiler.md#using-only-the-github-website) shows each step.
+
 ## Status
 
 Implemented: `num` and `bnum` integers, `dec` decimals, `word` strings, `let` characters, booleans, null, mutable arrays, expressions with precedence, `if`/`else`, `while`, `loop`, `whileif`, `break`, `continue`, functions, recursion, `return`, `print`, `input`, `len`, `type`, and source-located errors. No type declarations, semicolons, curly blocks, imports, or negative array indices.

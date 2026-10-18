@@ -1,0 +1,56 @@
+name: Build a KSL program for Windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Path to your .ksl file in this repository
+        required: true
+        default: examples/hello.ksl
+        type: string
+  push:
+    paths:
+      - .github/workflows/compile.yml
+
+permissions:
+  contents: read
+
+jobs:
+  windows-executable:
+    runs-on: windows-latest
+    env:
+      KSL_SOURCE: ${{ inputs.source || 'examples/hello.ksl' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate program path
+        shell: pwsh
+        run: |
+          $root = (Resolve-Path .).Path
+          $source = (Resolve-Path -LiteralPath $env:KSL_SOURCE -ErrorAction Stop).Path
+          if (-not $source.StartsWith($root + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+            throw 'The KSL file must be inside this repository.'
+          }
+          if ([IO.Path]::GetExtension($source) -ne '.ksl') {
+            throw 'Choose a file ending in .ksl.'
+          }
+          $name = [IO.Path]::GetFileNameWithoutExtension($source)
+          if ($name -cnotmatch '^[A-Za-z0-9_-]+$') {
+            throw 'Use only letters, digits, underscores, or hyphens in the file name.'
+          }
+          "PROGRAM_SOURCE=$source" >> $env:GITHUB_ENV
+          "PROGRAM_NAME=$name" >> $env:GITHUB_ENV
+      - name: Build KSL
+        run: |
+          cmake -S . -B build
+          cmake --build build --config Release
+      - name: Run language tests
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Build program executable
+        shell: pwsh
+        run: py kslc.py $env:PROGRAM_SOURCE -o "$env:PROGRAM_NAME.exe"
+      - name: Upload Windows executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: ksl-${{ env.PROGRAM_NAME }}-windows
+          path: ${{ env.PROGRAM_NAME }}.exe
+          if-no-files-found: error
