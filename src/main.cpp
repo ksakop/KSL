@@ -44,7 +44,7 @@ public:
       {"loop",T::Loop},{"fn",T::Fn},{"return",T::Return},{"break",T::Break},
       {"continue",T::Continue},{"true",T::True},{"false",T::False},
       {"null",T::Null},{"and",T::And},{"or",T::Or},{"not",T::Bang}};
-    while(peek()) {
+    while(pos<src.size()) {
       Loc at=loc; char c=peek();
       if(c==' '||c=='\t'||c=='\r') {take(); continue;}
       if(c=='\n') {take(); out.push_back({T::Newline,"\\n",at}); continue;}
@@ -209,15 +209,18 @@ class Parser {
     lines();Token t=cur();
     if(match(T::If)) {
       auto n=stmt(Stmt::IfStmt,t);n->expressions.push_back(angle());lines();n->body=block();
-      lines();if(match(T::Else)) {lines();n->otherwise=block();}return n;
+      bool separated=is(T::Newline);lines();
+      if(match(T::Else)) {lines();n->otherwise=block();finish();}
+      else if(!separated)finish();
+      return n;
     }
     if(match(T::While)||match(T::Whileif)) {
       auto n=stmt(t.type==T::While?Stmt::WhileStmt:Stmt::WhileifStmt,t);
       n->expressions.push_back(angle());lines();
       if(n->kind==Stmt::WhileifStmt) {n->expressions.push_back(angle());lines();}
-      n->body=block();return n;
+      n->body=block();finish();return n;
     }
-    if(match(T::Loop)) {auto n=stmt(Stmt::LoopStmt,t);lines();n->body=block();return n;}
+    if(match(T::Loop)) {auto n=stmt(Stmt::LoopStmt,t);lines();n->body=block();finish();return n;}
     if(match(T::Fn)) {
       auto n=stmt(Stmt::Function,expect(T::Name,"expected function name"));
       expect(T::LParen,"expected '(' after function name");lines();
@@ -230,7 +233,7 @@ class Parser {
         lines();if(!match(T::Comma))break;
         lines();
       }
-      expect(T::RParen,"expected ')' after parameters");lines();n->body=block();return n;
+      expect(T::RParen,"expected ')' after parameters");lines();n->body=block();finish();return n;
     }
     if(match(T::Return)) {
       auto n=stmt(Stmt::ReturnStmt,t);

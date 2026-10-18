@@ -61,6 +61,9 @@ errors = [
     ("recursive_depth", "fn forever() [return forever()]\nforever()\n", ["CallDepthExceeded", "depth exceeded 256", "recursive_depth.ksl:1"]),
     ("array_unclosed", "a = [1,\n", ["SyntaxError", "expected ']' after array elements"]),
     ("call_unclosed", "print(1,\n", ["SyntaxError", "expected ')' after arguments"]),
+    ("nul_byte", "print(1)\n\x00print(2)\n", ["SyntaxError", "unexpected character", "nul_byte.ksl:2:1"]),
+    ("compound_separator", "if <true> [print(1)] print(2)\n", ["SyntaxError", "expected a newline after statement"]),
+    ("function_separator", "fn f() [return 1] print(f())\n", ["SyntaxError", "expected a newline after statement"]),
 ]
 
 with tempfile.TemporaryDirectory() as tmp:
