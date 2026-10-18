@@ -68,7 +68,7 @@ errors = [
     ("integer_overflow", "print(9223372036854775807 + 1)\n", ["NumberOutOfRange", "bnum range"]),
     ("multiply_overflow", "print(3037000500 * 3037000500)\n", ["NumberOutOfRange", "bnum range"]),
     ("character_size", "print('ab')\n", ["SyntaxError", "let literal must contain exactly one byte"]),
-    ("recursive_depth", "fn forever() [return forever()]\nforever()\n", ["CallDepthExceeded", "depth exceeded 256", "recursive_depth.ksl:1"]),
+    ("recursive_depth", "fn forever() [return forever()]\nforever()\n", ["CallDepthExceeded", "depth exceeded 64", "recursive_depth.ksl:1"]),
     ("array_unclosed", "a = [1,\n", ["SyntaxError", "expected ']' after array elements"]),
     ("call_unclosed", "print(1,\n", ["SyntaxError", "expected ')' after arguments"]),
     ("nul_byte", "print(1)\n\x00print(2)\n", ["SyntaxError", "unexpected character", "nul_byte.ksl:2:1"]),
