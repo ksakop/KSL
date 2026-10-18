@@ -144,10 +144,18 @@ class Parser {
     if(match(T::Minus)||match(T::Bang)||match(T::Plus)) {
       auto n=node(Expr::Unary,t);n->args.push_back(expression(8));return n;
     }
-    if(match(T::LParen)) {auto n=expression();expect(T::RParen,"expected ')' after expression");return n;}
+    if(match(T::LParen)) {
+      lines();auto n=expression();lines();
+      expect(T::RParen,"expected ')' after expression");return n;
+    }
     if(match(T::LSquare)) {
       auto n=node(Expr::Array,t);
-      if(!is(T::RSquare)) do {n->args.push_back(expression());} while(match(T::Comma));
+      lines();
+      while(!is(T::RSquare)&&!is(T::End)) {
+        n->args.push_back(expression());lines();
+        if(!match(T::Comma))break;
+        lines();
+      }
       expect(T::RSquare,"expected ']' after array elements");return n;
     }
     throw Error("SyntaxError",t.loc,"expected an expression");
@@ -157,12 +165,18 @@ class Parser {
     while(true) {
       if(match(T::LParen)) {
         Token op=prev();auto n=node(Expr::Call,op);n->args.push_back(std::move(left));
-        if(!is(T::RParen)) do {n->args.push_back(expression());} while(match(T::Comma));
+        lines();
+        while(!is(T::RParen)&&!is(T::End)) {
+          n->args.push_back(expression());lines();
+          if(!match(T::Comma))break;
+          lines();
+        }
         expect(T::RParen,"expected ')' after arguments");left=std::move(n);continue;
       }
       if(match(T::LSquare)) {
         Token op=prev();auto n=node(Expr::Index,op);n->args.push_back(std::move(left));
-        n->args.push_back(expression());expect(T::RSquare,"expected ']' after index");
+        lines();n->args.push_back(expression());lines();
+        expect(T::RSquare,"expected ']' after index");
         left=std::move(n);continue;
       }
       if(is(T::Inc)||is(T::Dec)) {
@@ -205,14 +219,16 @@ class Parser {
     if(match(T::Loop)) {auto n=stmt(Stmt::LoopStmt,t);lines();n->body=block();return n;}
     if(match(T::Fn)) {
       auto n=stmt(Stmt::Function,expect(T::Name,"expected function name"));
-      expect(T::LParen,"expected '(' after function name");
-      if(!is(T::RParen)) do {
+      expect(T::LParen,"expected '(' after function name");lines();
+      while(!is(T::RParen)&&!is(T::End)) {
         Token param=expect(T::Name,"expected parameter name");
         for(const auto &existing:n->params)
           if(existing==param.text)
             throw Error("SyntaxError",param.loc,"duplicate parameter '"+param.text+"'");
         n->params.push_back(param.text);
-      } while(match(T::Comma));
+        lines();if(!match(T::Comma))break;
+        lines();
+      }
       expect(T::RParen,"expected ')' after parameters");lines();n->body=block();return n;
     }
     if(match(T::Return)) {

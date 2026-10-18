@@ -29,6 +29,7 @@ cases = [
     ("character", "c = 'a'\nprint(c + 'b', type(c), 'a' == 'a', 'a' != 'b')\nprint(type('\\n'))\n", "ab let true true\nlet\n"),
     ("integer_min", "x = -9223372036854775808\nprint(x, type(x))\n", "-9223372036854775808 bnum\n"),
     ("mixed_comparison", "a = 9007199254740993\nb = 9007199254740992.0\nprint(a == b, a > b, b < a)\nprint(3 == 3.0, 3 < 3.5)\n", "false true true\ntrue true\n"),
+    ("multiline_collections", "a = [\n 10,\n 20,\n]\nfn add(\n x,\n y,\n) [return x + y]\nprint(\n a[\n 0\n ],\n add(\n 2,\n 3,\n ),\n)\n", "10 5\n"),
 ]
 errors = [
     ("negative_index", "a = [1, 2]\nprint(a[-1])\n", ["ArrayIndexOutOfBounds", "attempted index: -1", "valid range: 0..1", "negative_index.ksl:2:9"]),
@@ -53,6 +54,8 @@ errors = [
     ("multiply_overflow", "print(3037000500 * 3037000500)\n", ["NumberOutOfRange", "bnum range"]),
     ("character_size", "print('ab')\n", ["SyntaxError", "let literal must contain exactly one byte"]),
     ("recursive_depth", "fn forever() [return forever()]\nforever()\n", ["CallDepthExceeded", "depth exceeded 256", "recursive_depth.ksl:1"]),
+    ("array_unclosed", "a = [1,\n", ["SyntaxError", "expected ']' after array elements"]),
+    ("call_unclosed", "print(1,\n", ["SyntaxError", "expected ')' after arguments"]),
 ]
 
 with tempfile.TemporaryDirectory() as tmp:

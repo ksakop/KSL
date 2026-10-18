@@ -31,6 +31,8 @@ print(a)          // [10, 25, 30]
 
 Indices are zero-based integer numbers (`num` or `bnum`; an integral `dec` is also accepted). Negative, fractional, and out-of-range indices produce errors; empty arrays have no valid index. Arrays are mutable reference values, so assigning one array to another variable shares it. `len(a)` returns its length.
 
+Arrays, function parameters, call arguments, parenthesized expressions, and array indices may span lines. Arrays and comma-separated parameter/argument lists allow a trailing comma.
+
 ## Control flow
 
 ```ksl
