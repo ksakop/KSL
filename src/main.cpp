@@ -113,6 +113,16 @@ struct Stmt {
 using E = std::unique_ptr<Expr>; using S = std::unique_ptr<Stmt>;
 class Parser {
   const std::vector<Token> &ts; size_t p=0; bool inAngle=false;
+  int expressionDepth=0, statementDepth=0;
+  struct DepthGuard {
+    int &depth;
+    DepthGuard(int &value,Loc at,const char *kind):depth(value) {
+      if(depth>=64)
+        throw Error("SyntaxError",at,std::string(kind)+" nesting exceeds 64 levels");
+      ++depth;
+    }
+    ~DepthGuard() {--depth;}
+  };
   const Token &cur() const {return ts[p];}
   const Token &prev() const {return ts[p-1];}
   bool is(T t) const {return cur().type==t;}
@@ -176,6 +186,7 @@ class Parser {
     throw Error("SyntaxError",t.loc,"expected an expression");
   }
   E expression(int min=1) {
+    DepthGuard guard(expressionDepth,cur().loc,"expression");
     E left=primary();
     while(true) {
       if(match(T::LParen)) {
@@ -222,6 +233,7 @@ class Parser {
     expect(T::RSquare,"expected ']' to close block");return b;
   }
   S statement() {
+    DepthGuard guard(statementDepth,cur().loc,"statement");
     lines();Token t=cur();
     if(match(T::If)) {
       auto n=stmt(Stmt::IfStmt,t);n->expressions.push_back(angle());lines();n->body=block();

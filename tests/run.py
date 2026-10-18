@@ -74,6 +74,8 @@ errors = [
     ("nul_byte", "print(1)\n\x00print(2)\n", ["SyntaxError", "unexpected character", "nul_byte.ksl:2:1"]),
     ("compound_separator", "if <true> [print(1)] print(2)\n", ["SyntaxError", "expected a newline after statement"]),
     ("function_separator", "fn f() [return 1] print(f())\n", ["SyntaxError", "expected a newline after statement"]),
+    ("deep_expression", "print(" + "(" * 80 + "1" + ")" * 80 + ")\n", ["SyntaxError", "expression nesting exceeds 64 levels"]),
+    ("deep_blocks", "if <true> [\n" * 80 + "print(1)\n" + "]\n" * 80, ["SyntaxError", "statement nesting exceeds 64 levels"]),
 ]
 
 with tempfile.TemporaryDirectory() as tmp:
