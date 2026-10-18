@@ -112,7 +112,7 @@ struct Stmt {
 };
 using E = std::unique_ptr<Expr>; using S = std::unique_ptr<Stmt>;
 class Parser {
-  const std::vector<Token> &ts; size_t p=0;
+  const std::vector<Token> &ts; size_t p=0; bool inAngle=false;
   const Token &cur() const {return ts[p];}
   const Token &prev() const {return ts[p-1];}
   bool is(T t) const {return cur().type==t;}
@@ -137,6 +137,20 @@ class Parser {
   static bool begins(T t) {
     return t==T::Number||t==T::String||t==T::Character||t==T::Name||t==T::True||t==T::False||
       t==T::Null||t==T::LParen||t==T::LSquare||t==T::Minus||t==T::Bang||t==T::Plus;
+  }
+  bool squareContinuesExpression() const {
+    size_t depth=0;
+    for(size_t i=p+1;i<ts.size();++i) {
+      if(ts[i].type==T::LSquare)++depth;
+      else if(ts[i].type==T::RSquare && --depth==0) {
+        T next=ts[i+1].type;
+        return next==T::Greater||next==T::LSquare||next==T::RParen||next==T::Comma||
+          next==T::Plus||next==T::Minus||next==T::Star||next==T::Slash||
+          next==T::Percent||next==T::Equal||next==T::NotEqual||next==T::Less||
+          next==T::LessEq||next==T::GreaterEq||next==T::And||next==T::Or;
+      }
+    }
+    return false;
   }
   E primary() {
     Token t=cur();
@@ -188,7 +202,8 @@ class Parser {
       int prec=precedence(cur().type);
       // A final '>' in a control expression has no expression on its right.
       if(prec<min || (is(T::Greater) &&
-          (ts[p+1].type==T::LSquare || !begins(ts[p+1].type)))) break;
+          (!begins(ts[p+1].type) ||
+           (inAngle && ts[p+1].type==T::LSquare && !squareContinuesExpression())))) break;
       Token op=ts[p++]; bool assignment=prec==1;
       if(assignment && left->kind!=Expr::Variable && left->kind!=Expr::Index)
         throw Error("SyntaxError",left->token.loc,"assignment target must be a variable or array element");
@@ -198,7 +213,8 @@ class Parser {
     }
     return left;
   }
-  E angle() {expect(T::Less,"expected '<' before control expression");auto e=expression();
+  E angle() {expect(T::Less,"expected '<' before control expression");
+    inAngle=true;auto e=expression();inAngle=false;
     expect(T::Greater,"expected '>' after control expression");return e;}
   std::vector<S> block() {
     expect(T::LSquare,"expected '[' to start block");lines();std::vector<S> b;
