@@ -6,6 +6,14 @@ import sys
 import tempfile
 
 binary = pathlib.Path(sys.argv[1]).resolve()
+examples = {
+    "arrays.ksl": "10\n[10, 25, 30]\n",
+    "control.ksl": "13\n",
+    "functions.ksl": "120\n",
+    "hello.ksl": "Hello from KSL\n",
+    "values.ksl": "word let num bnum dec\nforty-two\n",
+    "whileif.ksl": "0\n1\n2\n",
+}
 cases = [
     ("precedence", "print(2 + 3 * 4)\nprint((2 + 3) * 4)\nprint(not false and true or false)\n", "14\n20\ntrue\n"),
     ("comparisons", "x = 7\nif <x > 5> [ print(1) ]\nif <x < 8> [ print(2) ]\nif <x >= 7> [ print(3) ]\nif <x <= 7> [ print(4) ]\n", "1\n2\n3\n4\n"),
@@ -67,6 +75,14 @@ errors = [
 ]
 
 with tempfile.TemporaryDirectory() as tmp:
+    example_dir = pathlib.Path(__file__).resolve().parent.parent / "examples"
+    actual_examples = {path.name for path in example_dir.glob("*.ksl")}
+    if actual_examples != set(examples):
+        raise AssertionError(f"example expectations differ from repository: {actual_examples ^ set(examples)}")
+    for name, expected in examples.items():
+        result = subprocess.run([str(binary), str(example_dir / name)], capture_output=True, text=True, timeout=3)
+        if result.returncode != 0 or result.stdout != expected:
+            raise AssertionError(f"example {name}: status={result.returncode}, stdout={result.stdout!r}, stderr={result.stderr!r}")
     for name, source, expected in cases:
         path = pathlib.Path(tmp, name + ".ksl")
         path.write_text(source, encoding="utf-8")
@@ -88,4 +104,4 @@ with tempfile.TemporaryDirectory() as tmp:
     help_result = subprocess.run([str(binary), "--help"], capture_output=True, text=True, timeout=3)
     if help_result.returncode != 0 or "Usage: ksl" not in help_result.stdout:
         raise AssertionError(f"help: {help_result.stdout!r}, {help_result.stderr!r}")
-print(f"{len(cases) + len(errors) + 2} language tests passed")
+print(f"{len(examples) + len(cases) + len(errors) + 2} language tests passed")
