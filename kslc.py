@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
-"""Package a checked KSL source file and its interpreter into an executable."""
+"""Package a checked KSL file with the already-built interpreter."""
 
 import argparse
 import os
 from pathlib import Path
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
 
-
 ROOT = Path(__file__).resolve().parent
+MAGIC = b"KSLPKG01"
 
 
-def find_ksl(explicit):
+def find_ksl(explicit=None):
     if explicit:
         return Path(explicit).resolve()
     candidates = (
@@ -25,83 +26,60 @@ def find_ksl(explicit):
     return next((path for path in candidates if path.is_file()), None)
 
 
-def byte_array(data):
-    data += b"\0"
-    return ",\n    ".join(", ".join(f"0x{byte:02x}" for byte in data[i:i + 16])
-                           for i in range(0, len(data), 16))
-
-
-def build_with_cmake(project, output):
-    if not shutil.which("cmake"):
-        raise RuntimeError("no C++ compiler or CMake found")
-    (project / "CMakeLists.txt").write_text(
-        "cmake_minimum_required(VERSION 3.16)\n"
-        "project(ksl_packaged_program LANGUAGES CXX)\n"
-        "set(CMAKE_CXX_STANDARD 17)\n"
-        "set(CMAKE_CXX_STANDARD_REQUIRED ON)\n"
-        "add_executable(ksl_program program.cpp)\n"
-        "install(TARGETS ksl_program RUNTIME DESTINATION bin)\n",
-        encoding="utf-8",
-    )
-    build = project / "build"
-    install = project / "install"
-    subprocess.run(["cmake", "-S", str(project), "-B", str(build), "-DCMAKE_BUILD_TYPE=Release"], check=True)
-    subprocess.run(["cmake", "--build", str(build), "--config", "Release"], check=True)
-    subprocess.run(["cmake", "--install", str(build), "--config", "Release", "--prefix", str(install)], check=True)
-    executable = install / "bin" / ("ksl_program.exe" if os.name == "nt" else "ksl_program")
-    shutil.copy2(executable, output)
+def package(source, output, ksl):
+    """Create a runnable copy of ksl with source and filename appended."""
+    source, output, ksl = Path(source).resolve(), Path(output).resolve(), Path(ksl).resolve()
+    if not source.is_file() or source.suffix.lower() != ".ksl":
+        raise ValueError("source must be an existing .ksl file")
+    if not ksl.is_file():
+        raise ValueError("build KSL first or pass --ksl with a built interpreter")
+    if output in (source, ksl):
+        raise ValueError("output must differ from the source and KSL interpreter")
+    checked = subprocess.run([str(ksl), "--check", str(source)], check=False,
+                             capture_output=True, text=True, encoding="utf-8", errors="replace",
+                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    if checked.returncode:
+        raise ValueError(checked.stderr.strip() or "KSL syntax check failed")
+    data, name = source.read_bytes(), source.name.encode("utf-8")
+    if len(data) > 64 * 1024 * 1024 or len(name) > 4096:
+        raise ValueError("program source or filename is too large to package")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temp = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=output.parent, prefix=".kslc-", delete=False) as target:
+            temp = Path(target.name)
+            with ksl.open("rb") as original:
+                shutil.copyfileobj(original, target)
+            target.write(data)
+            target.write(name)
+            target.write(struct.pack("<QQ", len(data), len(name)))
+            target.write(MAGIC)
+        shutil.copymode(ksl, temp)
+        temp.replace(output)
+    finally:
+        if temp is not None:
+            temp.unlink(missing_ok=True)
+    return 0
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Build a runnable executable from a .ksl file")
+    parser = argparse.ArgumentParser(description="Package a .ksl program as an executable")
     parser.add_argument("source", type=Path, help="KSL source file")
-    parser.add_argument("-o", "--output", type=Path, help="output executable path")
-    parser.add_argument("--ksl", type=Path, help="path to the built ksl interpreter")
+    parser.add_argument("-o", "--output", type=Path, help="output executable")
+    parser.add_argument("--ksl", type=Path, help="path to the built KSL interpreter")
     args = parser.parse_args()
-
     source = args.source.resolve()
-    if not source.is_file() or source.suffix.lower() != ".ksl":
-        parser.error("source must be an existing .ksl file")
     output = (args.output or source.with_suffix(".exe" if os.name == "nt" else "")).resolve()
     if os.name == "nt" and output.suffix.lower() != ".exe":
         output = output.with_suffix(".exe")
-    if source == output:
-        parser.error("output must differ from the source file")
-    ksl = find_ksl(args.ksl)
-    if not ksl or not ksl.is_file():
-        parser.error("build ksl first with 'cmake -S . -B build' and 'cmake --build build'")
-
     try:
-        checked = subprocess.run([str(ksl), "--check", str(source)], check=False)
-        if checked.returncode:
-            return checked.returncode
-        with tempfile.TemporaryDirectory(prefix="kslc-") as directory:
-            project = Path(directory)
-            shutil.copy2(ROOT / "src" / "main.cpp", project / "main.cpp")
-            program = (
-                "#define KSL_EMBEDDED_PROGRAM\n"
-                "static const unsigned char kslEmbeddedSource[] = {\n    "
-                + byte_array(source.read_bytes()) + "\n};\n"
-                "static const unsigned char kslEmbeddedName[] = {\n    "
-                + byte_array(source.name.encode("utf-8")) + "\n};\n"
-                '#include "main.cpp"\n'
-            )
-            (project / "program.cpp").write_text(program, encoding="utf-8")
-            compiler = os.environ.get("CXX") or next(
-                (tool for name in ("c++", "g++", "clang++") if (tool := shutil.which(name))), None
-            )
-            built = project / ("program.exe" if os.name == "nt" else "program")
-            if compiler and (os.name != "nt" or os.environ.get("CXX")):
-                subprocess.run([compiler, "-std=c++17", "-O2", str(project / "program.cpp"), "-o", str(built)], check=True)
-            else:
-                build_with_cmake(project, built)
-            output.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(built, output)
-    except (OSError, subprocess.CalledProcessError, RuntimeError) as error:
+        result = package(source, output, find_ksl(args.ksl) or Path("missing-ksl"))
+    except (OSError, ValueError) as error:
         print(f"kslc: {error}", file=sys.stderr)
         return 1
-    print(f"Built {output}")
-    return 0
+    if result == 0:
+        print(f"Built {output}")
+    return result
 
 
 if __name__ == "__main__":

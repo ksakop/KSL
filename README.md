@@ -35,7 +35,7 @@ On Windows, run `build/Debug/ksl.exe examples/whileif.ksl` with a multiconfigura
 
 Run `ksl program.ksl` for a file. Run `ksl` without arguments for a small REPL; variables persist across entered lines. Incomplete blocks, functions, and calls continue at the `...` prompt until closed. In the REPL, put `else [` on the same line as the preceding `]`.
 
-To turn your own `.ksl` file into a runnable executable, run `python3 kslc.py program.ksl -o program` after building KSL. On Windows, use `py kslc.py program.ksl -o program.exe`. This packages the interpreter with your program; see the [executable guide](docs/compiler.md) for what that means and the commercial licensing condition.
+To turn your own `.ksl` file into a runnable executable, run `python3 kslc.py program.ksl -o program` after building KSL. On Windows, use `py kslc.py program.ksl -o program.exe`. Packaging does not need a C++ compiler once `ksl` is built. For an editor with **Save As**, **Run**, and **Build EXE**, download [KSL Studio for Windows](https://github.com/ksakop/KSL/actions/workflows/studio.yml) from its latest successful run. See the [executable guide](docs/compiler.md) for details and the commercial licensing condition.
 
 If you only have the GitHub website, create your `.ksl` file there and use **Actions → Build a KSL program for Windows → Run workflow**. Download the resulting ZIP artifact; the [executable guide](docs/compiler.md#using-only-the-github-website) shows each step.
 

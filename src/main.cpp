@@ -5,6 +5,8 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <filesystem>
+#include <optional>
 #include <limits>
 #include <sstream>
 #include <stdexcept>
@@ -14,6 +16,9 @@
 #include <utility>
 #include <variant>
 #include <vector>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 namespace ksl {
 struct Loc { int line = 1, col = 1; };
@@ -673,6 +678,46 @@ int checkSource(const std::string &source,const std::string &name) {
   catch(const std::exception &e) {std::cerr<<"KSL Internal Error: "<<e.what()<<"\n";return 2;}
 }
 } // namespace ksl
+namespace {
+// A packaged program is the interpreter followed by source, UTF-8 name,
+// two little-endian lengths and a fixed trailer. The operating system ignores
+// bytes appended after its executable image.
+std::optional<std::pair<std::string,std::string>> packagedProgram() {
+  std::filesystem::path path;
+#ifdef _WIN32
+  std::wstring wide(32768,L'\0');
+  DWORD n=GetModuleFileNameW(nullptr,wide.data(),static_cast<DWORD>(wide.size()));
+  if(!n||n>=wide.size()) return std::nullopt;
+  wide.resize(n);path=wide;
+#else
+  path="/proc/self/exe";
+#endif
+  std::ifstream file(path,std::ios::binary|std::ios::ate);
+  if(!file)return std::nullopt;
+  auto size=file.tellg();
+  if(size<std::streamoff(24))return std::nullopt;
+  file.seekg(size-std::streamoff(24));
+  unsigned char tail[24]{};
+  if(!file.read(reinterpret_cast<char *>(tail),24))return std::nullopt;
+  if(std::string(reinterpret_cast<char *>(tail+16),8)!="KSLPKG01")return std::nullopt;
+  auto length=[&](int offset) {
+    std::uint64_t value=0;
+    for(int i=7;i>=0;--i)value=(value<<8)|tail[offset+i];
+    return value;
+  };
+  auto sourceLength=length(0),nameLength=length(8);
+  if(sourceLength>64*1024*1024||nameLength>4096||
+     sourceLength+nameLength>static_cast<std::uint64_t>(size)-24)
+    return std::nullopt;
+  file.seekg(size-std::streamoff(24+sourceLength+nameLength));
+  std::string source(static_cast<size_t>(sourceLength),'\0');
+  std::string name(static_cast<size_t>(nameLength),'\0');
+  if(!file.read(source.data(),static_cast<std::streamsize>(source.size()))||
+     !file.read(name.data(),static_cast<std::streamsize>(name.size())))
+    return std::nullopt;
+  return std::make_pair(std::move(source),std::move(name));
+}
+}
 #ifdef KSL_EMBEDDED_PROGRAM
 int main(int argc,char **argv) {
   if(argc!=1) {std::cerr<<"This compiled KSL program takes no command-line arguments.\n";return 2;}
@@ -683,6 +728,10 @@ int main(int argc,char **argv) {
 }
 #else
 int main(int argc,char **argv) {
+  if(auto program=packagedProgram()) {
+    ksl::Interpreter runtime;
+    return ksl::executeSource(program->first,program->second,runtime);
+  }
   bool checking=argc==3&&std::string(argv[1])=="--check";
   if(argc>2&&!checking) {std::cerr<<"Usage: ksl [file.ksl] or ksl --check file.ksl\n";return 2;}
   if(argc==2 && std::string(argv[1])=="--help") {

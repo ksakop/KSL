@@ -1,0 +1,39 @@
+name: Build portable KSL Studio
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/studio.yml
+      - studio.py
+      - kslc.py
+      - src/main.cpp
+
+permissions:
+  contents: read
+
+jobs:
+  windows-studio:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build interpreter with static C++ runtime
+        run: |
+          cmake -S . -B build -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+          cmake --build build --config Release
+      - name: Run language tests
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Bundle editor and interpreter
+        shell: pwsh
+        run: |
+          python -m pip install pyinstaller
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name KSL-Studio --add-binary 'build/Release/ksl.exe;.' studio.py
+      - name: Upload portable editor
+        uses: actions/upload-artifact@v4
+        with:
+          name: KSL-Studio-Windows
+          path: dist/KSL-Studio.exe
+          if-no-files-found: error
