@@ -203,28 +203,38 @@ class Studio:
             self.root.destroy()
 
 
+def self_test():
+    def mark(step):
+        if path := os.environ.get("KSL_STUDIO_TEST_LOG"):
+            with open(path, "a", encoding="utf-8") as log:
+                log.write(step + "\n")
+    mark("Studio started")
+    with tempfile.TemporaryDirectory() as directory:
+        source = Path(directory) / "check.ksl"
+        output = Path(directory) / ("check.exe" if os.name == "nt" else "check")
+        source.write_text("print(6 * 7)\n", encoding="utf-8")
+        ksl = interpreter_path()
+        mark("Bundled interpreter found" if ksl else "Bundled interpreter missing")
+        if ksl is None or package(source, output, ksl):
+            raise RuntimeError("bundled KSL failed to package a program")
+        mark("Program packaged")
+        source.unlink()
+        result = subprocess.run([str(output)], capture_output=True, timeout=10,
+                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if result.returncode or result.stdout.replace(b"\r\n", b"\n") != b"42\n":
+            raise RuntimeError(f"packaged program failed: status={result.returncode}, output={result.stdout!r}, error={result.stderr!r}")
+        mark("Program ran successfully")
+
+
 def main():
     if sys.argv[1:] == ["--self-test"]:
-        def mark(step):
+        try:
+            self_test()
+        except Exception as error:
             if path := os.environ.get("KSL_STUDIO_TEST_LOG"):
                 with open(path, "a", encoding="utf-8") as log:
-                    log.write(step + "\n")
-        mark("Studio started")
-        with tempfile.TemporaryDirectory() as directory:
-            source = Path(directory) / "check.ksl"
-            output = Path(directory) / ("check.exe" if os.name == "nt" else "check")
-            source.write_text("print(6 * 7)\n", encoding="utf-8")
-            ksl = interpreter_path()
-            mark("Bundled interpreter found" if ksl else "Bundled interpreter missing")
-            if ksl is None or package(source, output, ksl):
-                raise RuntimeError("bundled KSL failed to package a program")
-            mark("Program packaged")
-            source.unlink()
-            result = subprocess.run([str(output)], capture_output=True, timeout=10,
-                                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-            if result.returncode or result.stdout != b"42\n":
-                raise RuntimeError("packaged program failed to run")
-            mark("Program ran successfully")
+                    log.write(f"FAIL: {error!r}\n")
+            os._exit(1)  # A windowed executable must not wait on a traceback dialog in CI.
         return
     root = tk.Tk()
     Studio(root)
