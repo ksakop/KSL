@@ -33,8 +33,16 @@ jobs:
           python -m PyInstaller --noconfirm --clean --onefile --windowed --name KSL-Studio --add-binary 'build/Release/ksl.exe;.' studio.py
       - name: Smoke test packaged editor
         shell: pwsh
+        env:
+          KSL_STUDIO_TEST_LOG: ${{ runner.temp }}/ksl-studio-test.log
         run: |
-          $process = Start-Process -FilePath (Resolve-Path 'dist/KSL-Studio.exe') -ArgumentList '--self-test' -Wait -PassThru
+          $process = Start-Process -FilePath (Resolve-Path 'dist/KSL-Studio.exe') -ArgumentList '--self-test' -PassThru
+          if (-not $process.WaitForExit(60000)) {
+            Stop-Process -Id $process.Id -Force
+            if (Test-Path $env:KSL_STUDIO_TEST_LOG) { Get-Content $env:KSL_STUDIO_TEST_LOG }
+            throw 'KSL Studio self-test timed out.'
+          }
+          if (Test-Path $env:KSL_STUDIO_TEST_LOG) { Get-Content $env:KSL_STUDIO_TEST_LOG }
           if ($process.ExitCode -ne 0) { throw "KSL Studio self-test failed with exit code $($process.ExitCode)" }
       - name: Upload portable editor
         uses: actions/upload-artifact@v4
