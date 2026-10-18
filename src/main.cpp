@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <fstream>
@@ -305,9 +306,34 @@ struct Env:std::enable_shared_from_this<Env> {
   std::unordered_map<std::string,Value> values;std::shared_ptr<Env> parent;
   explicit Env(std::shared_ptr<Env> p=nullptr):parent(std::move(p)){}
   Value get(const std::string &s,Loc at) {
-    auto it=values.find(s);if(it!=values.end())return it->second;
-    if(parent)return parent->get(s,at);
-    throw Error("UndefinedVariable",at,"'"+s+"' is not defined");
+    for(const Env *scope=this;scope;scope=scope->parent.get()) {
+      auto it=scope->values.find(s);
+      if(it!=scope->values.end())return it->second;
+    }
+    std::string suggestion;
+    size_t best=s.size()<=3?1:2;
+    for(const Env *scope=this;scope;scope=scope->parent.get()) {
+      for(const auto &entry:scope->values) {
+        const std::string &name=entry.first;
+        std::vector<size_t> previous(name.size()+1),current(name.size()+1);
+        for(size_t j=0;j<=name.size();++j)previous[j]=j;
+        for(size_t i=1;i<=s.size();++i) {
+          current[0]=i;
+          for(size_t j=1;j<=name.size();++j) {
+            size_t edit=s[i-1]==name[j-1]?0:1;
+            current[j]=std::min({previous[j]+1,current[j-1]+1,previous[j-1]+edit});
+          }
+          previous.swap(current);
+        }
+        size_t distance=previous[name.size()];
+        if(distance<=best&&(suggestion.empty()||distance<best||name<suggestion)) {
+          best=distance;suggestion=name;
+        }
+      }
+    }
+    std::string message="'"+s+"' is not defined";
+    if(!suggestion.empty())message+="; did you mean '"+suggestion+"'?";
+    throw Error("UndefinedVariable",at,message);
   }
   void set(const std::string &s,Value v) {
     if(values.count(s)) {values[s]=std::move(v);return;}
@@ -371,11 +397,11 @@ class Interpreter {
   int loopDepth=0, functionDepth=0;
   double number(const Value &v,Loc at) {
     if(isNumeric(v))return numeric(v);
-    throw Error("TypeError",at,"expected a number, got "+display(v));
+    throw Error("TypeError",at,"expected a number, got "+typeName(v));
   }
   size_t index(const Value &v,size_t size,Loc at) {
     if(!isNumeric(v))
-      throw Error("TypeError",at,"array index must be an integer number");
+      throw Error("TypeError",at,"array index must be an integer number, got "+typeName(v));
     double n=number(v,at);
     if(!std::isfinite(n)||std::floor(n)!=n)
       throw Error("TypeError",at,"array index must be an integer number");
