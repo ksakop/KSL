@@ -105,7 +105,22 @@ with tempfile.TemporaryDirectory() as tmp:
                           capture_output=True, text=True, timeout=3)
     if repl.returncode != 0 or "> 8\n" not in repl.stdout:
         raise AssertionError(f"repl: {repl.stdout!r}, {repl.stderr!r}")
+    multiline_repl = subprocess.run(
+        [str(binary)],
+        input="fn twice(x) [\nreturn x * 2\n]\nprint(twice(5))\ni = 0\nwhileif <i < 2>\n<i++> [\nprint(i)\n]\n",
+        capture_output=True, text=True, timeout=3,
+    )
+    if multiline_repl.returncode != 0 or "... " not in multiline_repl.stdout or "10\n" not in multiline_repl.stdout or "0\n" not in multiline_repl.stdout or "1\n" not in multiline_repl.stdout or multiline_repl.stderr:
+        raise AssertionError(f"multiline repl: {multiline_repl.stdout!r}, {multiline_repl.stderr!r}")
+    unfinished_repl = subprocess.run([str(binary)], input="fn unfinished() [\n",
+                                    capture_output=True, text=True, timeout=3)
+    if "expected ']'" not in unfinished_repl.stderr or "... " not in unfinished_repl.stdout:
+        raise AssertionError(f"unfinished repl: {unfinished_repl.stdout!r}, {unfinished_repl.stderr!r}")
+    recovering_repl = subprocess.run([str(binary)], input="print(1 +)\nprint(7)\n",
+                                     capture_output=True, text=True, timeout=3)
+    if "SyntaxError" not in recovering_repl.stderr or "7\n" not in recovering_repl.stdout:
+        raise AssertionError(f"recovering repl: {recovering_repl.stdout!r}, {recovering_repl.stderr!r}")
     help_result = subprocess.run([str(binary), "--help"], capture_output=True, text=True, timeout=3)
     if help_result.returncode != 0 or "Usage: ksl" not in help_result.stdout:
         raise AssertionError(f"help: {help_result.stdout!r}, {help_result.stderr!r}")
-print(f"{len(examples) + len(cases) + len(errors) + 2} language tests passed")
+print(f"{len(examples) + len(cases) + len(errors) + 5} language tests passed")

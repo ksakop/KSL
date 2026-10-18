@@ -33,13 +33,13 @@ ctest --test-dir build --output-on-failure
 
 On Windows, run `build/Debug/ksl.exe examples/whileif.ksl` with a multiconfiguration generator. If CMake is unavailable, `g++ -std=c++17 -O2 src/main.cpp -o ksl` builds the same executable; run `python3 tests/run.py ./ksl` for tests.
 
-Run `ksl program.ksl` for a file. Run `ksl` without arguments for a small, single-line REPL; variables persist across entered lines. Multiline blocks currently belong in files.
+Run `ksl program.ksl` for a file. Run `ksl` without arguments for a small REPL; variables persist across entered lines. Incomplete blocks, functions, and calls continue at the `...` prompt until closed. In the REPL, put `else [` on the same line as the preceding `]`.
 
 ## Status
 
 Implemented: `num` and `bnum` integers, `dec` decimals, `word` strings, `let` characters, booleans, null, mutable arrays, expressions with precedence, `if`/`else`, `while`, `loop`, `whileif`, `break`, `continue`, functions, recursion, `return`, `print`, `input`, `len`, `type`, and source-located errors. No type declarations, semicolons, curly blocks, imports, or negative array indices.
 
-Limitations: no module system, native compiler, closures with lexical block scopes, object types, array slicing, or multiline REPL. `input` returns a `word`. Decimal arithmetic uses IEEE 754 doubles; mixed integer/decimal arithmetic can lose precision. Full details: [language reference](docs/language.md), [syntax notes](docs/syntax.md), [architecture](docs/architecture.md), [roadmap](docs/roadmap.md).
+Limitations: no module system, native compiler, closures with lexical block scopes, object types, or array slicing. `input` returns a `word`. Decimal arithmetic uses IEEE 754 doubles; mixed integer/decimal arithmetic can lose precision. Full details: [language reference](docs/language.md), [syntax notes](docs/syntax.md), [architecture](docs/architecture.md), [roadmap](docs/roadmap.md).
 
 See [examples](examples/) and [contributing guide](CONTRIBUTING.md). KSL is [source available under custom terms](LICENSE): using and sharing KSL without charge is permitted; selling KSL or its forks requires a separate written profit-sharing agreement. Programs independently written in KSL may be sold without that agreement. These terms are not an OSI-approved open source license.
 

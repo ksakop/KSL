@@ -655,9 +655,16 @@ void report(const Error &e,const std::string &filename,const std::string &source
   }
   std::cerr<<"\n"<<e.what()<<"\n";
 }
-int executeSource(const std::string &source,const std::string &name,Interpreter &runtime) {
-  try {auto tokens=Lexer(source).scan();auto program=Parser(tokens).parse();runtime.run(std::move(program));return 0;}
-  catch(const Error &e) {report(e,name,source);return 1;}
+int executeSource(const std::string &source,const std::string &name,Interpreter &runtime,
+                  bool allowIncomplete=false) {
+  std::vector<Token> tokens;
+  try {tokens=Lexer(source).scan();auto program=Parser(tokens).parse();runtime.run(std::move(program));return 0;}
+  catch(const Error &e) {
+    if(allowIncomplete&&e.category=="SyntaxError"&&!tokens.empty()&&
+       e.loc.line==tokens.back().loc.line&&e.loc.col==tokens.back().loc.col)
+      return 3;
+    report(e,name,source);return 1;
+  }
   catch(const std::exception &e) {std::cerr<<"KSL Internal Error: "<<e.what()<<"\n";return 2;}
 }
 } // namespace ksl
@@ -666,7 +673,7 @@ int main(int argc,char **argv) {
   if(argc==2 && std::string(argv[1])=="--help") {
     std::cout<<"KSL v0.1 — Kodexically Slow Language\n"
              <<"Usage: ksl [file.ksl]\n"
-             <<"With no file, start the single-line REPL.\n";
+             <<"With no file, start the REPL.\n";
     return 0;
   }
   if(argc==2 && std::string(argv[1])=="--version") {
@@ -676,8 +683,12 @@ int main(int argc,char **argv) {
   ksl::Interpreter runtime;
   if(argc==1) {
     std::cout<<"KSL — Kodexically Slow Language v0.1\n";
-    std::string line;while(std::cout<<"> "&&std::getline(std::cin,line))
-      ksl::executeSource(line+"\n","<repl>",runtime);
+    std::string line,source;
+    while(std::cout<<(source.empty()?"> ":"... ")&&std::getline(std::cin,line)) {
+      source+=line+"\n";
+      if(ksl::executeSource(source,"<repl>",runtime,true)!=3)source.clear();
+    }
+    if(!source.empty())ksl::executeSource(source,"<repl>",runtime);
     return 0;
   }
   std::ifstream f(argv[1]);if(!f){std::cerr<<"KSL File Error: cannot open '"<<argv[1]<<"'\n";return 2;}
